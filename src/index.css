@@ -3,29 +3,30 @@
 /* Định dạng bắt buộc cho html5-qrcode và video element */
 #reader {
   width: 100% !important;
-  height: 100% !important;
+  min-height: 300px !important;
   border: none !important;
   position: relative !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
   background-color: #000000 !important;
+  overflow: hidden !important;
 }
 
 #reader video {
   width: 100% !important;
   height: 100% !important;
+  min-height: 300px !important;
   object-fit: cover !important;
   display: block !important;
   border-radius: 1rem !important;
 }
 
 #reader__scan_region {
+  position: relative !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 300px !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  width: 100% !important;
-  height: 100% !important;
 }
 
 #reader__scan_region img {

@@ -76,24 +76,35 @@ export const ScannerTab: React.FC<ScannerTabProps> = ({ onVideoUploaded, onGoToD
   // Khởi tạo máy quét Html5Qrcode
   useEffect(() => {
     let isMounted = true;
+    let isStarting = false;
 
     const startScanner = async () => {
       setCameraError(null);
+      isStarting = true;
+
+      // Đợi DOM render hoàn tất và có kích thước clientWidth thực
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      if (!isMounted) return;
+
       try {
         const scannerId = 'reader';
         const readerElement = document.getElementById(scannerId);
-        if (!readerElement) return;
+        if (!readerElement || !isMounted) return;
 
-        // Dọn dẹp máy quét cũ nếu có
+        // Nếu máy quét cũ đang chạy thì dừng an toàn
         if (html5QrCodeRef.current) {
           try {
-            await html5QrCodeRef.current.stop();
+            if (html5QrCodeRef.current.isScanning) {
+              await html5QrCodeRef.current.stop();
+            }
             html5QrCodeRef.current.clear();
           } catch (e) {
             // bỏ qua
           }
+          html5QrCodeRef.current = null;
         }
 
+        // Tạo instance mới
         const scanner = new Html5Qrcode(scannerId, {
           verbose: false,
           experimentalFeatures: {
@@ -102,37 +113,16 @@ export const ScannerTab: React.FC<ScannerTabProps> = ({ onVideoUploaded, onGoToD
         });
         html5QrCodeRef.current = scanner;
 
-        // Thử tìm danh sách camera để chọn thiết bị tối ưu (ưu tiên camera sau)
-        let cameraToUse: any = { facingMode: facingMode };
-        try {
-          const devices = await Html5Qrcode.getCameras();
-          if (devices && devices.length > 0) {
-            const backCamera = devices.find((d) => 
-              d.label.toLowerCase().includes('back') || 
-              d.label.toLowerCase().includes('rear') ||
-              d.label.toLowerCase().includes('sau')
-            );
-            if (facingMode === 'environment' && backCamera) {
-              cameraToUse = backCamera.id;
-            } else if (facingMode === 'user') {
-              const frontCamera = devices.find((d) => 
-                d.label.toLowerCase().includes('front') || 
-                d.label.toLowerCase().includes('trước')
-              );
-              if (frontCamera) cameraToUse = frontCamera.id;
-            }
-          }
-        } catch (devErr) {
-          console.warn('Không liệt kê được camera thiết bị, dùng facingMode mặc định:', devErr);
-        }
+        // Xác định kích thước qrbox an toàn dựa trên kích thước thực tế của khung
+        const boxWidth = readerElement.clientWidth || 300;
+        const boxHeight = readerElement.clientHeight || 300;
+        const minDim = Math.min(boxWidth, boxHeight);
+        const qrSize = Math.max(160, Math.floor(minDim * 0.72));
 
         const config = {
-          fps: 20,
-          qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
-            const minDim = Math.min(viewfinderWidth, viewfinderHeight);
-            const edge = Math.max(160, Math.floor(minDim * 0.75));
-            return { width: edge, height: edge };
-          },
+          fps: 15,
+          qrbox: { width: qrSize, height: qrSize },
+          aspectRatio: 1.0,
         };
 
         const onScanSuccess = (decodedText: string) => {
@@ -142,18 +132,23 @@ export const ScannerTab: React.FC<ScannerTabProps> = ({ onVideoUploaded, onGoToD
         };
 
         const onScanFailure = () => {
-          // Bỏ qua lỗi khi khung hình không có mã QR
+          // Bỏ qua frame không có QR
         };
 
+        // Ưu tiên mở camera sau (environment) hoặc camera trước theo state
         try {
-          await scanner.start(cameraToUse, config, onScanSuccess, onScanFailure);
-        } catch (firstErr) {
-          console.warn('Lỗi khi mở camera theo chỉ định, thử lại với facingMode mặc định:', firstErr);
-          // Fallback dự phòng: Mở camera bằng facingMode tiêu chuẩn
           await scanner.start({ facingMode: facingMode }, config, onScanSuccess, onScanFailure);
+        } catch (firstErr) {
+          console.warn('Lỗi khi mở với facingMode, thử mở camera mặc định bất kỳ:', firstErr);
+          const cameras = await Html5Qrcode.getCameras().catch(() => []);
+          if (cameras && cameras.length > 0) {
+            await scanner.start(cameras[0].id, config, onScanSuccess, onScanFailure);
+          } else {
+            throw firstErr;
+          }
         }
 
-        // Đảm bảo video phát mượt mà trên iOS Safari (playsinline)
+        // Tối ưu video cho iOS Safari & Android
         const vid = readerElement.querySelector('video') as HTMLVideoElement | null;
         if (vid) {
           vid.setAttribute('playsinline', 'true');
@@ -175,6 +170,8 @@ export const ScannerTab: React.FC<ScannerTabProps> = ({ onVideoUploaded, onGoToD
               : 'Không thể kết nối với camera: ' + (err?.message || 'Lỗi không xác định')
           );
         }
+      } finally {
+        isStarting = false;
       }
     };
 
@@ -183,9 +180,21 @@ export const ScannerTab: React.FC<ScannerTabProps> = ({ onVideoUploaded, onGoToD
     return () => {
       isMounted = false;
       if (html5QrCodeRef.current) {
-        html5QrCodeRef.current.stop().catch(() => {}).finally(() => {
-          html5QrCodeRef.current?.clear();
-        });
+        try {
+          if (html5QrCodeRef.current.isScanning) {
+            html5QrCodeRef.current.stop().catch(() => {}).finally(() => {
+              try {
+                html5QrCodeRef.current?.clear();
+              } catch (e) {}
+              html5QrCodeRef.current = null;
+            });
+          } else {
+            html5QrCodeRef.current.clear();
+            html5QrCodeRef.current = null;
+          }
+        } catch (e) {
+          // bỏ qua
+        }
       }
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
       if (cooldownIntervalRef.current) clearInterval(cooldownIntervalRef.current);
