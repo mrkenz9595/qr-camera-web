@@ -89,6 +89,43 @@ export function playStopBeep() {
 }
 
 /**
+ * Âm báo Từ chối / Lỗi khi mã đã tồn tại (3 tiếng bíp trầm cảnh báo)
+ */
+export function playErrorBeep() {
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+
+    const playTone = (freq: number, start: number, duration: number) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + start);
+
+      gain.gain.setValueAtTime(0.3, ctx.currentTime + start);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + start + duration);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(ctx.currentTime + start);
+      osc.stop(ctx.currentTime + start + duration);
+    };
+
+    playTone(350, 0, 0.12);
+    playTone(300, 0.15, 0.12);
+    playTone(250, 0.3, 0.2);
+
+    if (navigator.vibrate) {
+      navigator.vibrate([200, 100, 200]);
+    }
+  } catch (e) {
+    console.warn('Audio feedback error:', e);
+  }
+}
+
+/**
  * Định dạng dung lượng byte thành KB / MB
  */
 export function formatBytes(bytes: number, decimals = 1): string {

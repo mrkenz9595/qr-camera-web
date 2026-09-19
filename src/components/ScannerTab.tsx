@@ -8,13 +8,13 @@ import {
   UploadCloud, 
   CheckCircle2, 
   AlertCircle, 
-  Sparkles,
   RefreshCw,
   QrCode,
-  Clock
+  Clock,
+  ShieldAlert
 } from 'lucide-react';
 import { ScannerStatus } from '../types';
-import { playStartBeep, playStopBeep, formatDuration } from '../utils/audio';
+import { playStartBeep, playStopBeep, playErrorBeep, formatDuration } from '../utils/audio';
 
 interface ScannerTabProps {
   onVideoUploaded: () => void;
@@ -31,6 +31,7 @@ export const ScannerTab: React.FC<ScannerTabProps> = ({ onVideoUploaded, onGoToD
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
   const [uploadMessage, setUploadMessage] = useState<string>('');
   const [lastUploadedFile, setLastUploadedFile] = useState<string | null>(null);
+  const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
 
   // Tham chiếu DOM & API
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
@@ -386,13 +387,34 @@ export const ScannerTab: React.FC<ScannerTabProps> = ({ onVideoUploaded, onGoToD
   /**
    * Xử lý sự kiện khi thư viện quét thấy mã QR / Barcode
    */
-  const handleQrDetected = (decodedText: string) => {
+  const handleQrDetected = async (decodedText: string) => {
     const currentStatus = statusRef.current;
+    const cleanText = decodedText.trim();
+    if (!cleanText) return;
 
-    // Trạng thái 1: Đang chờ quét lần 1 -> Bắt đầu ghi hình
+    // Trạng thái 1: Đang chờ quét lần 1 -> Kiểm tra xem mã đã có video trong CSDL chưa
     if (currentStatus === 'idle') {
-      console.log(`[QR Lần 1] Phát hiện mã: ${decodedText} -> Bắt đầu ghi hình`);
-      startRecording(decodedText);
+      console.log(`[QR Lần 1] Phát hiện mã: ${cleanText} -> Kiểm tra trùng lặp trên CSDL...`);
+
+      try {
+        const checkRes = await fetch(`/api/check-qr/${encodeURIComponent(cleanText)}`);
+        if (checkRes.ok) {
+          const checkData = await checkRes.json();
+          if (checkData.exists) {
+            // ĐÃ TỒN TẠI TRONG CƠ SỞ DỮ LIỆU: Từ chối quay video!
+            console.warn(`[Từ chối quay] Mã QR "${cleanText}" đã có trong CSDL (tệp: ${checkData.filename})`);
+            playErrorBeep();
+            setDuplicateWarning(`Mã "${cleanText}" đã được quay và lưu trước đó (${checkData.filename}). Hệ thống từ chối quay video!`);
+            return;
+          }
+        }
+      } catch (checkErr) {
+        console.warn('Lỗi khi kiểm tra mã QR với server:', checkErr);
+      }
+
+      // Xóa cảnh báo cũ nếu mã hợp lệ
+      setDuplicateWarning(null);
+      startRecording(cleanText);
       return;
     }
 
@@ -404,7 +426,7 @@ export const ScannerTab: React.FC<ScannerTabProps> = ({ onVideoUploaded, onGoToD
         return;
       }
 
-      console.log(`[QR Lần 2] Phát hiện mã: ${decodedText} -> Dừng ghi hình ngay lập tức`);
+      console.log(`[QR Lần 2] Phát hiện mã: ${cleanText} -> Dừng ghi hình ngay lập tức`);
       stopRecording();
     }
   };
@@ -420,15 +442,29 @@ export const ScannerTab: React.FC<ScannerTabProps> = ({ onVideoUploaded, onGoToD
     setFacingMode((prev) => (prev === 'environment' ? 'user' : 'environment'));
   };
 
-  /**
-   * Giả lập quét mã QR để kiểm thử nhanh khi không có mã QR vật lý
-   */
-  const simulateScan = (sampleCode: string) => {
-    handleQrDetected(sampleCode);
-  };
-
   return (
     <div className="flex flex-col h-full max-w-lg mx-auto w-full px-3 py-2 space-y-3">
+      {/* THÔNG BÁO TỪ CHỐI QUAY NẾU MÃ QR ĐÃ TỒN TẠI */}
+      {duplicateWarning && (
+        <div className="bg-rose-950/90 border-2 border-rose-500 rounded-xl p-3 flex items-start space-x-2.5 animate-in fade-in duration-200 shadow-lg shadow-rose-950/50">
+          <ShieldAlert className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <div className="text-rose-200 font-bold text-xs uppercase tracking-wide">
+              Từ chối quay video
+            </div>
+            <div className="text-slate-200 text-xs mt-0.5 leading-relaxed font-medium">
+              {duplicateWarning}
+            </div>
+          </div>
+          <button
+            onClick={() => setDuplicateWarning(null)}
+            className="text-slate-400 hover:text-white p-0.5"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* THANH TRẠNG THÁI TRÊN CÙNG */}
       <div className="flex items-center justify-between bg-slate-800/80 border border-slate-700/60 rounded-xl px-4 py-2.5 backdrop-blur-sm shadow-sm">
         <div className="flex items-center space-x-2">
@@ -612,27 +648,6 @@ export const ScannerTab: React.FC<ScannerTabProps> = ({ onVideoUploaded, onGoToD
           </button>
         </div>
       )}
-
-      {/* THANH GIẢ LẬP QUÉT MÃ MẪU (TESTING TOOLBAR) */}
-      <div className="bg-slate-800/40 border border-slate-700/50 rounded-xl p-2.5 mt-auto">
-        <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
-          <span className="flex items-center space-x-1">
-            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            <span>Thử nghiệm nhanh (Không cần mã in giấy):</span>
-          </span>
-        </div>
-        <div className="flex flex-wrap gap-1.5">
-          {['DON-HANG-1029', 'SAN-PHAM-IPHONE16', 'KIEM-KHO-KHO-A1', 'SERIAL-889922'].map((code) => (
-            <button
-              key={code}
-              onClick={() => simulateScan(code)}
-              className="text-[11px] bg-slate-700/80 hover:bg-slate-700 active:bg-slate-600 text-slate-300 px-2.5 py-1 rounded-lg border border-slate-600/50 font-mono transition"
-            >
-              Quét "{code}"
-            </button>
-          ))}
-        </div>
-      </div>
     </div>
   );
 };

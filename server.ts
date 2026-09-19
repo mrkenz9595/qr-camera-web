@@ -18,26 +18,56 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
-// Cấu hình lưu trữ Multer
+// Hàm làm sạch chuỗi QR để làm tên tệp tin an toàn trên hệ thống tệp
+function sanitizeQrToFilename(rawQr: string): string {
+  return rawQr
+    .toString()
+    .trim()
+    .replace(/[<>:"/\\|?*\x00-\x1F]/g, '_')
+    .replace(/\s+/g, '_')
+    .substring(0, 100);
+}
+
+// Hàm kiểm tra xem mã QR hoặc file đã tồn tại trong thư mục uploads chưa
+function findExistingVideoByQr(qrCode: string): string | null {
+  if (!fs.existsSync(uploadsDir)) return null;
+  const targetRaw = qrCode.trim().toLowerCase();
+  const sanitized = sanitizeQrToFilename(qrCode).toLowerCase();
+  const files = fs.readdirSync(uploadsDir);
+
+  for (const file of files) {
+    if (file.endsWith('.meta.json')) {
+      try {
+        const meta = JSON.parse(fs.readFileSync(path.join(uploadsDir, file), 'utf8'));
+        if (meta.originalQr && meta.originalQr.trim().toLowerCase() === targetRaw) {
+          return meta.filename || file.replace(/\.meta\.json$/, '');
+        }
+      } catch (e) {}
+    } else {
+      const ext = path.extname(file).toLowerCase();
+      const videoExtensions = ['.mp4', '.webm', '.mov', '.ogg', '.mkv'];
+      if (videoExtensions.includes(ext)) {
+        const baseName = path.parse(file).name.toLowerCase();
+        if (baseName === sanitized || baseName === targetRaw) {
+          return file;
+        }
+      }
+    }
+  }
+  return null;
+}
+
+// Cấu hình lưu trữ Multer: Tên video CHỈ LÀ NỘI DUNG QR/Barcode (không có timestamp hay hậu tố)
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, uploadsDir);
   },
   filename: (req, file, cb) => {
-    // Lấy nội dung QR từ body hoặc từ tên file gửi lên
     const rawQr = req.body?.qrCode || req.body?.title || path.parse(file.originalname).name || 'QR_Code';
-    // Làm sạch chuỗi để dùng làm tên file an toàn (loại bỏ ký tự đặc biệt nguy hiểm)
-    const sanitizedQr = rawQr
-      .toString()
-      .trim()
-      .replace(/[<>:"/\\|?*\x00-\x1F]/g, '_')
-      .replace(/\s+/g, '_')
-      .substring(0, 80);
-
-    const timestamp = Date.now();
-    const ext = path.extname(file.originalname) || '.webm';
-    const finalFilename = `${sanitizedQr}_${timestamp}${ext}`;
-    
+    const sanitizedQr = sanitizeQrToFilename(rawQr) || 'QR_Code';
+    const ext = path.extname(file.originalname) || '.mp4';
+    // Đặt tên video CHỈ LÀ NỘI DUNG QR + đuôi mở rộng, không thêm timestamp hay hậu tố
+    const finalFilename = `${sanitizedQr}${ext}`;
     cb(null, finalFilename);
   },
 });
@@ -77,10 +107,53 @@ async function startServer() {
   // ==========================================
 
   /**
+   * 0. GET /api/check-qr/:code
+   * Kiểm tra xem mã QR/Barcode đã tồn tại trong CSDL/thư mục lưu trữ hay chưa
+   */
+  app.get('/api/check-qr/:code', (req, res) => {
+    try {
+      const code = decodeURIComponent(req.params.code || '');
+      if (!code.trim()) {
+        return res.json({ exists: false });
+      }
+
+      const existingFile = findExistingVideoByQr(code);
+      if (existingFile) {
+        return res.json({
+          exists: true,
+          filename: existingFile,
+          message: `Mã "${code}" đã được ghi hình trước đó (tệp: ${existingFile}). Hệ thống từ chối quay lại.`,
+        });
+      }
+
+      return res.json({
+        exists: false,
+      });
+    } catch (err: any) {
+      console.error('Lỗi khi kiểm tra mã QR:', err);
+      return res.status(500).json({ exists: false, error: err?.message });
+    }
+  });
+
+  /**
    * 1. POST /api/upload-video
    * Nhận tệp tin video từ frontend gửi lên qua multipart/form-data
    */
-  app.post('/api/upload-video', upload.single('video'), (req, res) => {
+  app.post('/api/upload-video', (req, res, next) => {
+    // Kiểm tra trùng lặp sơ bộ trước khi lưu file (nếu có qrCode truyền trong query hoặc header)
+    const qrParam = (req.query?.qrCode as string) || (req.headers['x-qr-code'] as string);
+    if (qrParam) {
+      const existing = findExistingVideoByQr(decodeURIComponent(qrParam));
+      if (existing) {
+        return res.status(409).json({
+          success: false,
+          code: 'QR_ALREADY_EXISTS',
+          message: `Mã QR/Barcode "${qrParam}" đã tồn tại trong cơ sở dữ liệu (tệp: ${existing}). Từ chối lưu video trùng lặp!`,
+        });
+      }
+    }
+    next();
+  }, upload.single('video'), (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({
@@ -165,11 +238,16 @@ async function startServer() {
             }
           }
 
-          // Nếu chưa có originalQr, phân tích từ tên file (dạng NoiDungQR_timestamp.ext)
+          // Nếu chưa có originalQr, lấy trực tiếp tên file làm nội dung QR (hỗ trợ cả file cũ có _timestamp và file mới thuần tên QR)
           if (!originalQr) {
             const base = path.parse(file).name;
             const lastUnderscore = base.lastIndexOf('_');
-            originalQr = lastUnderscore > 0 ? base.substring(0, lastUnderscore) : base;
+            // Nếu phần sau dấu gạch dưới là dãy số timestamp 13 chữ số thì cắt bỏ, còn không giữ nguyên tên
+            if (lastUnderscore > 0 && /^\d{10,14}$/.test(base.substring(lastUnderscore + 1))) {
+              originalQr = base.substring(0, lastUnderscore);
+            } else {
+              originalQr = base;
+            }
           }
 
           return {

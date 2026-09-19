@@ -141,7 +141,6 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
           Tổng số: <strong className="text-slate-200">{videos.length} video</strong>
           {searchQuery && ` (Khớp ${filteredVideos.length})`}
         </span>
-        <span className="text-[11px] text-slate-500">Thư mục lưu trữ: /uploads</span>
       </div>
 
       {/* DANH SÁCH LƯỚI VIDEO (GRID) */}
