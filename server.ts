@@ -319,21 +319,42 @@ async function startServer() {
   });
 
   /**
-   * Endpoint tải file xuống trình duyệt (hỗ trợ ép tải xuống trên di động)
+   * Endpoint tải file xuống trình duyệt (hỗ trợ ép tải xuống trên di động & mạng nội bộ)
    */
   app.get('/api/videos/:filename/download', (req, res) => {
-    const filename = path.basename(req.params.filename);
-    const targetFilePath = path.join(uploadsDir, filename);
+    try {
+      const filename = path.basename(req.params.filename);
+      const targetFilePath = path.join(uploadsDir, filename);
 
-    if (!fs.existsSync(targetFilePath)) {
-      return res.status(404).send('Tệp video không tồn tại');
-    }
-
-    res.download(targetFilePath, filename, (err) => {
-      if (err) {
-        console.error('Lỗi tải xuống:', err);
+      if (!fs.existsSync(targetFilePath)) {
+        return res.status(404).json({ error: 'Tệp video không tồn tại trên server.' });
       }
-    });
+
+      const stat = fs.statSync(targetFilePath);
+      const ext = path.extname(filename).toLowerCase();
+      const contentType = ext === '.webm' ? 'video/webm' : 'video/mp4';
+
+      // Thiết lập đầy đủ Header để iOS Safari, Chrome Android và trình duyệt Local HTTPS không chặn
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Content-Length', stat.size);
+      res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"; filename*=UTF-8''${encodeURIComponent(filename)}`);
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+
+      const readStream = fs.createReadStream(targetFilePath);
+      readStream.on('error', (err) => {
+        console.error('Lỗi stream video:', err);
+        if (!res.headersSent) {
+          res.status(500).send('Lỗi khi đọc file video');
+        }
+      });
+      readStream.pipe(res);
+    } catch (err: any) {
+      console.error('Lỗi khi tải file:', err);
+      if (!res.headersSent) {
+        res.status(500).json({ error: err?.message || 'Lỗi server' });
+      }
+    }
   });
 
   // ==========================================

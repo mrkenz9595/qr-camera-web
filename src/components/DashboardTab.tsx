@@ -67,15 +67,35 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
     }
   };
 
-  // Tải video về máy điện thoại
-  const handleDownload = (video: VideoItem) => {
+  // Tải video về máy điện thoại (Hỗ trợ mạng nội bộ HTTPS & Self-signed certs)
+  const handleDownload = async (video: VideoItem) => {
     const downloadUrl = `/api/videos/${encodeURIComponent(video.filename)}/download`;
-    const link = document.createElement('a');
-    link.href = downloadUrl;
-    link.download = video.filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+
+    try {
+      // Thử dùng fetch lấy Blob trước để tránh trình duyệt báo lỗi mạng khi click direct link trên HTTPS self-signed
+      const response = await fetch(downloadUrl);
+      if (!response.ok) throw new Error('Không thể tải tệp từ máy chủ');
+
+      const blob = await response.blob();
+      const objectUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = video.filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => window.URL.revokeObjectURL(objectUrl), 2000);
+    } catch (e) {
+      // Fallback: Mở link tải trực tiếp nếu fetch blob gặp giới hạn bộ nhớ
+      console.warn('Fallback tải file qua thẻ link:', e);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = video.filename;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
   };
 
   // Sao chép nội dung mã QR vào clipboard
