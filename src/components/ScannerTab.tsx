@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Html5Qrcode } from 'html5-qrcode';
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import { 
   Camera, 
   Video, 
@@ -11,7 +11,8 @@ import {
   RefreshCw,
   QrCode,
   Clock,
-  ShieldAlert
+  ShieldAlert,
+  Loader2
 } from 'lucide-react';
 import { ScannerStatus } from '../types';
 import { playStartBeep, playStopBeep, playErrorBeep, formatDuration } from '../utils/audio';
@@ -26,6 +27,7 @@ export const ScannerTab: React.FC<ScannerTabProps> = ({ onVideoUploaded, onGoToD
   const [currentQr, setCurrentQr] = useState<string>('');
   const [recordingSeconds, setRecordingSeconds] = useState<number>(0);
   const [cooldownRemaining, setCooldownRemaining] = useState<number>(0);
+  const [delayRemaining, setDelayRemaining] = useState<number>(0);
   const [isCameraActive, setIsCameraActive] = useState<boolean>(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
@@ -39,6 +41,8 @@ export const ScannerTab: React.FC<ScannerTabProps> = ({ onVideoUploaded, onGoToD
   const recordedChunksRef = useRef<Blob[]>([]);
   const timerIntervalRef = useRef<number | null>(null);
   const cooldownIntervalRef = useRef<number | null>(null);
+  const stopTimeoutRef = useRef<number | null>(null);
+  const stopCountdownIntervalRef = useRef<number | null>(null);
   const activeQrRef = useRef<string>('');
   const statusRef = useRef<ScannerStatus>('idle');
   const isCooldownRef = useRef<boolean>(false);
@@ -105,8 +109,9 @@ export const ScannerTab: React.FC<ScannerTabProps> = ({ onVideoUploaded, onGoToD
           html5QrCodeRef.current = null;
         }
 
-        // Tạo instance mới
+        // Tạo instance mới: CHỈ HỖ TRỢ DUY NHẤT ĐỊNH DẠNG QR_CODE (loại bỏ tất cả Barcode)
         const scanner = new Html5Qrcode(scannerId, {
+          formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
           verbose: false,
           experimentalFeatures: {
             useBarCodeDetectorIfSupported: true,
@@ -199,6 +204,8 @@ export const ScannerTab: React.FC<ScannerTabProps> = ({ onVideoUploaded, onGoToD
       }
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
       if (cooldownIntervalRef.current) clearInterval(cooldownIntervalRef.current);
+      if (stopTimeoutRef.current) clearTimeout(stopTimeoutRef.current);
+      if (stopCountdownIntervalRef.current) clearInterval(stopCountdownIntervalRef.current);
     };
   }, [facingMode]);
 
@@ -291,9 +298,9 @@ export const ScannerTab: React.FC<ScannerTabProps> = ({ onVideoUploaded, onGoToD
   };
 
   /**
-   * Dừng ghi hình và chuẩn bị tải video
+   * Dừng ghi hình ngay lập tức và tiến hành tải video lên server
    */
-  const stopRecording = () => {
+  const executeStop = () => {
     if (timerIntervalRef.current) {
       clearInterval(timerIntervalRef.current);
       timerIntervalRef.current = null;
@@ -302,8 +309,17 @@ export const ScannerTab: React.FC<ScannerTabProps> = ({ onVideoUploaded, onGoToD
       clearInterval(cooldownIntervalRef.current);
       cooldownIntervalRef.current = null;
     }
+    if (stopTimeoutRef.current) {
+      clearTimeout(stopTimeoutRef.current);
+      stopTimeoutRef.current = null;
+    }
+    if (stopCountdownIntervalRef.current) {
+      clearInterval(stopCountdownIntervalRef.current);
+      stopCountdownIntervalRef.current = null;
+    }
     isCooldownRef.current = false;
     setCooldownRemaining(0);
+    setDelayRemaining(0);
 
     playStopBeep();
 
@@ -316,13 +332,50 @@ export const ScannerTab: React.FC<ScannerTabProps> = ({ onVideoUploaded, onGoToD
   };
 
   /**
+   * Kích hoạt dừng có độ trễ 2 giây sau khi quét QR lần 2
+   */
+  const stopRecordingWithDelay = () => {
+    // Nếu đang trong quá trình đếm ngược dừng thì bỏ qua quét lặp
+    if (statusRef.current === 'stopping') return;
+
+    setStatus('stopping');
+    setDelayRemaining(2);
+
+    let timeLeft = 2;
+    if (stopCountdownIntervalRef.current) clearInterval(stopCountdownIntervalRef.current);
+    stopCountdownIntervalRef.current = window.setInterval(() => {
+      timeLeft -= 1;
+      setDelayRemaining(timeLeft);
+      if (timeLeft <= 0 && stopCountdownIntervalRef.current) {
+        clearInterval(stopCountdownIntervalRef.current);
+        stopCountdownIntervalRef.current = null;
+      }
+    }, 1000);
+
+    if (stopTimeoutRef.current) clearTimeout(stopTimeoutRef.current);
+    stopTimeoutRef.current = window.setTimeout(() => {
+      executeStop();
+    }, 2000);
+  };
+
+  /**
+   * Dừng ghi hình (cho nút bấm thủ công)
+   */
+  const stopRecording = () => {
+    executeStop();
+  };
+
+  /**
    * Hủy bỏ quá trình quay video mà không lưu
    */
   const cancelRecording = () => {
     if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     if (cooldownIntervalRef.current) clearInterval(cooldownIntervalRef.current);
+    if (stopTimeoutRef.current) clearTimeout(stopTimeoutRef.current);
+    if (stopCountdownIntervalRef.current) clearInterval(stopCountdownIntervalRef.current);
     isCooldownRef.current = false;
     setCooldownRemaining(0);
+    setDelayRemaining(0);
 
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.ondataavailable = null;
@@ -418,7 +471,7 @@ export const ScannerTab: React.FC<ScannerTabProps> = ({ onVideoUploaded, onGoToD
       return;
     }
 
-    // Trạng thái 2: Đang ghi hình -> Quét lần 2 để Dừng
+    // Trạng thái 2: Đang ghi hình -> Quét lần 2 để Dừng (chờ 2 giây rồi mới kết thúc ghi hình và tải lên)
     if (currentStatus === 'recording') {
       // Kiểm tra nếu còn trong thời gian hồi (cooldown), bỏ qua để không bị tắt nhầm
       if (isCooldownRef.current) {
@@ -426,8 +479,8 @@ export const ScannerTab: React.FC<ScannerTabProps> = ({ onVideoUploaded, onGoToD
         return;
       }
 
-      console.log(`[QR Lần 2] Phát hiện mã: ${cleanText} -> Dừng ghi hình ngay lập tức`);
-      stopRecording();
+      console.log(`[QR Lần 2] Phát hiện mã QR: ${cleanText} -> Kích hoạt dừng sau 2 giây...`);
+      stopRecordingWithDelay();
     }
   };
 
@@ -435,7 +488,7 @@ export const ScannerTab: React.FC<ScannerTabProps> = ({ onVideoUploaded, onGoToD
    * Đổi camera trước / sau
    */
   const toggleCamera = () => {
-    if (status === 'recording') {
+    if (status === 'recording' || status === 'stopping') {
       alert('Vui lòng dừng quay video trước khi đổi camera.');
       return;
     }
@@ -473,15 +526,26 @@ export const ScannerTab: React.FC<ScannerTabProps> = ({ onVideoUploaded, onGoToD
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
             </span>
+          ) : status === 'stopping' ? (
+            <span className="flex h-3 w-3 relative">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
+            </span>
           ) : (
             <span className="inline-flex rounded-full h-3 w-3 bg-emerald-400"></span>
           )}
           <span className="text-xs font-semibold uppercase tracking-wider text-slate-300">
-            {status === 'recording' ? 'ĐANG GHI HÌNH' : status === 'uploading' ? 'ĐANG TẢI LÊN' : 'MÁY QUÉT SẴN SÀNG'}
+            {status === 'recording'
+              ? 'ĐANG GHI HÌNH'
+              : status === 'stopping'
+              ? `KẾT THÚC SAU ${delayRemaining}S`
+              : status === 'uploading'
+              ? 'ĐANG TẢI LÊN'
+              : 'MÁY QUÉT QR SẴN SÀNG'}
           </span>
         </div>
 
-        {status === 'recording' && (
+        {(status === 'recording' || status === 'stopping') && (
           <div className="flex items-center space-x-1.5 bg-red-950/80 text-red-300 border border-red-800/60 px-2.5 py-0.5 rounded-full text-xs font-mono font-bold">
             <Clock className="w-3.5 h-3.5 text-red-400 animate-pulse" />
             <span>{formatDuration(recordingSeconds)}</span>
@@ -507,20 +571,30 @@ export const ScannerTab: React.FC<ScannerTabProps> = ({ onVideoUploaded, onGoToD
             <QrCode className="w-4 h-4" />
           </div>
           <div>
-            <div className="font-semibold text-blue-300 text-sm">Bước 1: Quét để bắt đầu</div>
+            <div className="font-semibold text-blue-300 text-sm">Bước 1: Quét mã QR để bắt đầu</div>
             <div className="text-slate-400 mt-0.5 leading-relaxed">
-              Hướng camera vào bất kỳ mã QR/Barcode nào. Ứng dụng sẽ đọc chuỗi ký tự làm tên file và tự động bật quay phim.
+              Hướng camera vào mã QR. Ứng dụng đọc nội dung mã QR làm tên video và tự động kích hoạt quay phim.
             </div>
           </div>
         </div>
       )}
 
-      {status === 'recording' && (
-        <div className="bg-gradient-to-r from-red-950/90 to-amber-950/80 border-2 border-red-500/70 rounded-xl p-3 text-slate-100 shadow-lg shadow-red-950/50">
+      {(status === 'recording' || status === 'stopping') && (
+        <div className={`bg-gradient-to-r rounded-xl p-3 text-slate-100 shadow-lg transition-all duration-300 ${
+          status === 'stopping'
+            ? 'from-amber-950/90 to-red-950/90 border-2 border-amber-500 shadow-amber-950/50'
+            : 'from-red-950/90 to-amber-950/80 border-2 border-red-500/70 shadow-red-950/50'
+        }`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              <Video className="w-5 h-5 text-red-400 animate-pulse" />
-              <span className="font-bold text-sm text-red-200">Đang quay video</span>
+              {status === 'stopping' ? (
+                <Loader2 className="w-5 h-5 text-amber-400 animate-spin" />
+              ) : (
+                <Video className="w-5 h-5 text-red-400 animate-pulse" />
+              )}
+              <span className="font-bold text-sm text-red-200">
+                {status === 'stopping' ? `Đang hoàn tất cảnh quay (còn ${delayRemaining}s)...` : 'Đang quay video'}
+              </span>
             </div>
             <span className="text-xs bg-red-900/60 border border-red-700/60 text-red-200 px-2 py-0.5 rounded-full font-mono">
               {formatDuration(recordingSeconds)}
@@ -535,7 +609,11 @@ export const ScannerTab: React.FC<ScannerTabProps> = ({ onVideoUploaded, onGoToD
           </div>
 
           <div className="mt-2.5 text-xs text-slate-300 flex items-center justify-between">
-            {cooldownRemaining > 0 ? (
+            {status === 'stopping' ? (
+              <span className="text-amber-300 font-semibold flex items-center space-x-1.5 animate-pulse">
+                <span>⏱️ Đang ghi thêm 2 giây trước khi dừng & tải lên server...</span>
+              </span>
+            ) : cooldownRemaining > 0 ? (
               <span className="text-amber-400 flex items-center space-x-1">
                 <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                 <span>Đang ổn định luồng quay ({cooldownRemaining}s)...</span>
@@ -563,20 +641,36 @@ export const ScannerTab: React.FC<ScannerTabProps> = ({ onVideoUploaded, onGoToD
           </div>
         )}
 
-        {/* Khung ngắm quét mã giả lập visual targeting */}
+        {/* Khung ngắm quét mã visual targeting */}
         <div className="absolute inset-0 pointer-events-none flex items-center justify-center p-8 z-10">
           <div className={`w-3/4 h-3/4 border-2 rounded-2xl relative transition-all duration-300 ${
-            status === 'recording' ? 'border-red-500/80 shadow-inner shadow-red-500/20' : 'border-emerald-400/70 shadow-inner shadow-emerald-500/20'
+            status === 'stopping'
+              ? 'border-amber-400/80 shadow-inner shadow-amber-500/30'
+              : status === 'recording'
+              ? 'border-red-500/80 shadow-inner shadow-red-500/20'
+              : 'border-emerald-400/70 shadow-inner shadow-emerald-500/20'
           }`}>
             {/* 4 góc vuông */}
-            <div className={`absolute -top-1 -left-1 w-5 h-5 border-t-4 border-l-4 ${status === 'recording' ? 'border-red-400' : 'border-emerald-400'} rounded-tl`}></div>
-            <div className={`absolute -top-1 -right-1 w-5 h-5 border-t-4 border-r-4 ${status === 'recording' ? 'border-red-400' : 'border-emerald-400'} rounded-tr`}></div>
-            <div className={`absolute -bottom-1 -left-1 w-5 h-5 border-b-4 border-l-4 ${status === 'recording' ? 'border-red-400' : 'border-emerald-400'} rounded-bl`}></div>
-            <div className={`absolute -bottom-1 -right-1 w-5 h-5 border-b-4 border-r-4 ${status === 'recording' ? 'border-red-400' : 'border-emerald-400'} rounded-br`}></div>
+            <div className={`absolute -top-1 -left-1 w-5 h-5 border-t-4 border-l-4 ${
+              status === 'stopping' ? 'border-amber-400' : status === 'recording' ? 'border-red-400' : 'border-emerald-400'
+            } rounded-tl`}></div>
+            <div className={`absolute -top-1 -right-1 w-5 h-5 border-t-4 border-r-4 ${
+              status === 'stopping' ? 'border-amber-400' : status === 'recording' ? 'border-red-400' : 'border-emerald-400'
+            } rounded-tr`}></div>
+            <div className={`absolute -bottom-1 -left-1 w-5 h-5 border-b-4 border-l-4 ${
+              status === 'stopping' ? 'border-amber-400' : status === 'recording' ? 'border-red-400' : 'border-emerald-400'
+            } rounded-bl`}></div>
+            <div className={`absolute -bottom-1 -right-1 w-5 h-5 border-b-4 border-r-4 ${
+              status === 'stopping' ? 'border-amber-400' : status === 'recording' ? 'border-red-400' : 'border-emerald-400'
+            } rounded-br`}></div>
 
             {/* Tia quét laser chuyển động */}
             <div className={`w-full h-0.5 absolute left-0 opacity-75 animate-bounce ${
-              status === 'recording' ? 'bg-red-400 shadow-[0_0_12px_rgba(239,68,68,1)]' : 'bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,1)]'
+              status === 'stopping'
+                ? 'bg-amber-400 shadow-[0_0_12px_rgba(251,191,36,1)]'
+                : status === 'recording'
+                ? 'bg-red-400 shadow-[0_0_12px_rgba(239,68,68,1)]'
+                : 'bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,1)]'
             }`} style={{ animationDuration: '2s' }}></div>
           </div>
         </div>
@@ -612,15 +706,15 @@ export const ScannerTab: React.FC<ScannerTabProps> = ({ onVideoUploaded, onGoToD
         )}
       </div>
 
-      {/* CÁC NÚT ĐIỀU KHIỂN THỦ CÔNG KHI ĐANG QUAY */}
-      {status === 'recording' && (
+      {/* CÁC NÚT ĐIỀU KHIỂN THỦ CÔNG KHI ĐANG QUAY HOẶC CHỜ DỪNG */}
+      {(status === 'recording' || status === 'stopping') && (
         <div className="grid grid-cols-2 gap-2">
           <button
-            onClick={stopRecording}
+            onClick={executeStop}
             className="flex items-center justify-center space-x-2 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-red-900/40 transition active:scale-95"
           >
             <Square className="w-4 h-4 fill-white" />
-            <span className="text-sm">Dừng quay & Lưu</span>
+            <span className="text-sm">{status === 'stopping' ? 'Dừng ngay' : 'Dừng quay & Lưu'}</span>
           </button>
 
           <button

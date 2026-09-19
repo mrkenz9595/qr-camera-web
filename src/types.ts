@@ -6,7 +6,7 @@ export interface VideoItem {
   url: string;
 }
 
-export type ScannerStatus = 'idle' | 'recording' | 'uploading';
+export type ScannerStatus = 'idle' | 'recording' | 'stopping' | 'uploading';
 
 export interface CameraDevice {
   id: string;
