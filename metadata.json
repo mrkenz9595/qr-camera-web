@@ -1,0 +1,6 @@
+{
+  "name": "QR Video Recorder",
+  "description": "Ứng dụng quét mã QR để bắt đầu và kết thúc ghi hình video, lưu trữ và quản lý video trên server",
+  "requestFramePermissions": ["camera", "microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
