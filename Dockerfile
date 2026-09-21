@@ -21,7 +21,7 @@ RUN npm prune --omit=dev --legacy-peer-deps
 # ========================================
 FROM node:20-alpine AS runtime
 
-RUN apk add --no-cache openssl \
+RUN apk add --no-cache openssl su-exec \
     && addgroup -S appgroup \
     && adduser -S appuser -G appgroup
 
@@ -43,8 +43,7 @@ RUN mkdir -p uploads ssl \
     && chown -R appuser:appgroup /app \
     && chmod +x docker-entrypoint.sh
 
-USER appuser
-
+# Không switch sang appuser ngay, để entrypoint chạy root tạo SSL
 EXPOSE 5000
 
 ENTRYPOINT ["./docker-entrypoint.sh"]

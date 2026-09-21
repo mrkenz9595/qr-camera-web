@@ -84,9 +84,9 @@
     "semantic_hash": ""
   },
   "DOCKER.md": {
-    "mtime": 1789971297.3922231,
-    "seen": 1789972146.8900263,
-    "ast_hash": "6876fd6eb29769e6caa579b65bedb6fd",
+    "mtime": 1789979386.6662173,
+    "seen": 1789979477.79382,
+    "ast_hash": "570b4b8d075fdf0194c83fc5af87a7a5",
     "semantic_hash": ""
   },
   "README.md": {
@@ -96,15 +96,21 @@
     "semantic_hash": ""
   },
   "docker-compose.yml": {
-    "mtime": 1789971130.2989101,
-    "seen": 1789972146.8900468,
-    "ast_hash": "b518fecf3a1937053ac7355d7c773259",
+    "mtime": 1789973062.5454922,
+    "seen": 1789979477.7938423,
+    "ast_hash": "41454066d1ee110ddb27b5ee75738b27",
     "semantic_hash": ""
   },
   "index.html": {
     "mtime": 1789805237.4839811,
     "seen": 1789969799.920656,
     "ast_hash": "fb7108bf2699cbc8d569283d14c82ed0",
+    "semantic_hash": ""
+  },
+  "docker-entrypoint.sh": {
+    "mtime": 1789973031.1709294,
+    "seen": 1789979477.7936172,
+    "ast_hash": "9d0954492f5ac82cbb0fecc8197ad6e4",
     "semantic_hash": ""
   }
 }

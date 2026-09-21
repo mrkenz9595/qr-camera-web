@@ -9,8 +9,8 @@ import os from 'os';
 import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Sử dụng process.cwd() thay vì import.meta để tương thích với cả ESM và CJS build
+const __dirname = process.cwd();
 
 // Khởi tạo thư mục lưu trữ video nếu chưa tồn tại
 const uploadsDir = path.join(process.cwd(), 'uploads');

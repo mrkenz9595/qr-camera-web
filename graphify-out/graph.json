@@ -240,6 +240,18 @@
       "source_location": "L57"
     },
     {
+      "id": "generate_ssl_getlanips",
+      "label": "getLanIps()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 4,
+      "community_name": "server.ts",
+      "file_type": "code",
+      "norm_label": "getlanips()",
+      "source_file": "generate-ssl.cjs",
+      "source_location": "L23"
+    },
+    {
       "id": "server_findexistingvideobyqr",
       "label": "findExistingVideoByQr()",
       "_callable": true,
@@ -286,18 +298,6 @@
       "norm_label": "getlanipaddresses()",
       "source_file": "server.ts",
       "source_location": "L386"
-    },
-    {
-      "id": "generate_ssl_getlanips",
-      "label": "getLanIps()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 6,
-      "community_name": "generate-ssl.cjs",
-      "file_type": "code",
-      "norm_label": "getlanips()",
-      "source_file": "generate-ssl.cjs",
-      "source_location": "L23"
     },
     {
       "id": "src_app",
@@ -1120,6 +1120,105 @@
       "source_location": "L117"
     },
     {
+      "id": "generate_ssl",
+      "label": "generate-ssl.cjs",
+      "_origin": "ast",
+      "community": 4,
+      "community_name": "server.ts",
+      "file_type": "code",
+      "norm_label": "generate-ssl.cjs",
+      "source_file": "generate-ssl.cjs",
+      "source_location": "L1"
+    },
+    {
+      "id": "generate_ssl_certpath",
+      "label": "certPath",
+      "_origin": "ast",
+      "community": 4,
+      "community_name": "server.ts",
+      "file_type": "code",
+      "norm_label": "certpath",
+      "source_file": "generate-ssl.cjs",
+      "source_location": "L20"
+    },
+    {
+      "id": "generate_ssl_execsync",
+      "label": "{ execSync }",
+      "_origin": "ast",
+      "community": 4,
+      "community_name": "server.ts",
+      "file_type": "code",
+      "norm_label": "{ execsync }",
+      "source_file": "generate-ssl.cjs",
+      "source_location": "L12"
+    },
+    {
+      "id": "generate_ssl_fs",
+      "label": "fs",
+      "_origin": "ast",
+      "community": 4,
+      "community_name": "server.ts",
+      "file_type": "code",
+      "norm_label": "fs",
+      "source_file": "generate-ssl.cjs",
+      "source_location": "L9"
+    },
+    {
+      "id": "generate_ssl_ips",
+      "label": "ips",
+      "_origin": "ast",
+      "community": 4,
+      "community_name": "server.ts",
+      "file_type": "code",
+      "norm_label": "ips",
+      "source_file": "generate-ssl.cjs",
+      "source_location": "L36"
+    },
+    {
+      "id": "generate_ssl_keypath",
+      "label": "keyPath",
+      "_origin": "ast",
+      "community": 4,
+      "community_name": "server.ts",
+      "file_type": "code",
+      "norm_label": "keypath",
+      "source_file": "generate-ssl.cjs",
+      "source_location": "L19"
+    },
+    {
+      "id": "generate_ssl_os",
+      "label": "os",
+      "_origin": "ast",
+      "community": 4,
+      "community_name": "server.ts",
+      "file_type": "code",
+      "norm_label": "os",
+      "source_file": "generate-ssl.cjs",
+      "source_location": "L11"
+    },
+    {
+      "id": "generate_ssl_path",
+      "label": "path",
+      "_origin": "ast",
+      "community": 4,
+      "community_name": "server.ts",
+      "file_type": "code",
+      "norm_label": "path",
+      "source_file": "generate-ssl.cjs",
+      "source_location": "L10"
+    },
+    {
+      "id": "generate_ssl_ssldir",
+      "label": "sslDir",
+      "_origin": "ast",
+      "community": 4,
+      "community_name": "server.ts",
+      "file_type": "code",
+      "norm_label": "ssldir",
+      "source_file": "generate-ssl.cjs",
+      "source_location": "L14"
+    },
+    {
       "id": "server",
       "label": "server.ts",
       "_origin": "ast",
@@ -1140,17 +1239,6 @@
       "norm_label": "__dirname",
       "source_file": "server.ts",
       "source_location": "L13"
-    },
-    {
-      "id": "server_filename",
-      "label": "__filename",
-      "_origin": "ast",
-      "community": 4,
-      "community_name": "server.ts",
-      "file_type": "code",
-      "norm_label": "__filename",
-      "source_file": "server.ts",
-      "source_location": "L12"
     },
     {
       "id": "server_storage",
@@ -1371,105 +1459,6 @@
       "norm_label": "@vitejs/plugin-react",
       "source_file": "package.json",
       "source_location": "L18"
-    },
-    {
-      "id": "generate_ssl",
-      "label": "generate-ssl.cjs",
-      "_origin": "ast",
-      "community": 6,
-      "community_name": "generate-ssl.cjs",
-      "file_type": "code",
-      "norm_label": "generate-ssl.cjs",
-      "source_file": "generate-ssl.cjs",
-      "source_location": "L1"
-    },
-    {
-      "id": "generate_ssl_certpath",
-      "label": "certPath",
-      "_origin": "ast",
-      "community": 6,
-      "community_name": "generate-ssl.cjs",
-      "file_type": "code",
-      "norm_label": "certpath",
-      "source_file": "generate-ssl.cjs",
-      "source_location": "L20"
-    },
-    {
-      "id": "generate_ssl_execsync",
-      "label": "{ execSync }",
-      "_origin": "ast",
-      "community": 6,
-      "community_name": "generate-ssl.cjs",
-      "file_type": "code",
-      "norm_label": "{ execsync }",
-      "source_file": "generate-ssl.cjs",
-      "source_location": "L12"
-    },
-    {
-      "id": "generate_ssl_fs",
-      "label": "fs",
-      "_origin": "ast",
-      "community": 6,
-      "community_name": "generate-ssl.cjs",
-      "file_type": "code",
-      "norm_label": "fs",
-      "source_file": "generate-ssl.cjs",
-      "source_location": "L9"
-    },
-    {
-      "id": "generate_ssl_ips",
-      "label": "ips",
-      "_origin": "ast",
-      "community": 6,
-      "community_name": "generate-ssl.cjs",
-      "file_type": "code",
-      "norm_label": "ips",
-      "source_file": "generate-ssl.cjs",
-      "source_location": "L36"
-    },
-    {
-      "id": "generate_ssl_keypath",
-      "label": "keyPath",
-      "_origin": "ast",
-      "community": 6,
-      "community_name": "generate-ssl.cjs",
-      "file_type": "code",
-      "norm_label": "keypath",
-      "source_file": "generate-ssl.cjs",
-      "source_location": "L19"
-    },
-    {
-      "id": "generate_ssl_os",
-      "label": "os",
-      "_origin": "ast",
-      "community": 6,
-      "community_name": "generate-ssl.cjs",
-      "file_type": "code",
-      "norm_label": "os",
-      "source_file": "generate-ssl.cjs",
-      "source_location": "L11"
-    },
-    {
-      "id": "generate_ssl_path",
-      "label": "path",
-      "_origin": "ast",
-      "community": 6,
-      "community_name": "generate-ssl.cjs",
-      "file_type": "code",
-      "norm_label": "path",
-      "source_file": "generate-ssl.cjs",
-      "source_location": "L10"
-    },
-    {
-      "id": "generate_ssl_ssldir",
-      "label": "sslDir",
-      "_origin": "ast",
-      "community": 6,
-      "community_name": "generate-ssl.cjs",
-      "file_type": "code",
-      "norm_label": "ssldir",
-      "source_file": "generate-ssl.cjs",
-      "source_location": "L14"
     },
     {
       "id": "package_devdependencies",
@@ -1932,6 +1921,30 @@
       "type": "external"
     },
     {
+      "id": "ref_child_process",
+      "label": "ref_child_process",
+      "_origin": "semantic",
+      "community": 4,
+      "community_name": "server.ts",
+      "external": true,
+      "file_type": "concept",
+      "norm_label": "ref_child_process",
+      "source_file": "",
+      "type": "external"
+    },
+    {
+      "id": "ref_fs",
+      "label": "ref_fs",
+      "_origin": "semantic",
+      "community": 4,
+      "community_name": "server.ts",
+      "external": true,
+      "file_type": "concept",
+      "norm_label": "ref_fs",
+      "source_file": "",
+      "type": "external"
+    },
+    {
       "id": "ref_http",
       "label": "ref_http",
       "_origin": "semantic",
@@ -1956,6 +1969,18 @@
       "type": "external"
     },
     {
+      "id": "ref_os",
+      "label": "ref_os",
+      "_origin": "semantic",
+      "community": 4,
+      "community_name": "server.ts",
+      "external": true,
+      "file_type": "concept",
+      "norm_label": "ref_os",
+      "source_file": "",
+      "type": "external"
+    },
+    {
       "id": "ref_url",
       "label": "ref_url",
       "_origin": "semantic",
@@ -1964,42 +1989,6 @@
       "external": true,
       "file_type": "concept",
       "norm_label": "ref_url",
-      "source_file": "",
-      "type": "external"
-    },
-    {
-      "id": "ref_child_process",
-      "label": "ref_child_process",
-      "_origin": "semantic",
-      "community": 6,
-      "community_name": "generate-ssl.cjs",
-      "external": true,
-      "file_type": "concept",
-      "norm_label": "ref_child_process",
-      "source_file": "",
-      "type": "external"
-    },
-    {
-      "id": "ref_fs",
-      "label": "ref_fs",
-      "_origin": "semantic",
-      "community": 6,
-      "community_name": "generate-ssl.cjs",
-      "external": true,
-      "file_type": "concept",
-      "norm_label": "ref_fs",
-      "source_file": "",
-      "type": "external"
-    },
-    {
-      "id": "ref_os",
-      "label": "ref_os",
-      "_origin": "semantic",
-      "community": 6,
-      "community_name": "generate-ssl.cjs",
-      "external": true,
-      "file_type": "concept",
-      "norm_label": "ref_os",
       "source_file": "",
       "type": "external"
     }
@@ -3952,17 +3941,6 @@
     },
     {
       "source": "server",
-      "target": "server_filename",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "server.ts",
-      "source_location": "L12",
-      "weight": 1.0
-    },
-    {
-      "source": "server",
       "target": "server_dirname",
       "relation": "contains",
       "_origin": "ast",
@@ -4436,5 +4414,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "624bdbd8b9f9f8021edafc7fc67e2ef33b73974b"
+  "built_at_commit": "cb9f508a707986e7cdb16846e258ad99fabd4432"
 }

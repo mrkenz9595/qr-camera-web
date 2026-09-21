@@ -1,5 +1,5 @@
 {
-  "0": "ScannerTab.tsx",
+  "0": "App.tsx",
   "1": "package.json",
   "2": "compilerOptions",
   "3": "QR Camera Web",
@@ -7,7 +7,9 @@
   "5": "dependencies",
   "6": "generate-ssl.cjs",
   "7": "devDependencies",
-  "8": "QR Camera Web - Docker Setup",
+  "8": "Docker Deployment Guide",
   "9": "scripts",
-  "10": "CLAUDE.md"
+  "10": "CLAUDE.md",
+  "11": "ScannerTab.tsx",
+  "12": "docker-entrypoint.sh"
 }
