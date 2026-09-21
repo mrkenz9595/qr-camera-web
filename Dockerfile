@@ -1,24 +1,51 @@
-FROM node:20-alpine
+# syntax=docker/dockerfile:1
 
-# Cài đặt OpenSSL để tạo chứng chỉ SSL
-RUN apk add --no-cache openssl
+# ========================================
+# Stage 1: Cài dependencies và build app
+# ========================================
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copy package files
 COPY package*.json ./
+RUN npm ci --legacy-peer-deps
 
-# Cài đặt dependencies
-RUN npm ci
-
-# Copy toàn bộ source code
 COPY . .
+RUN npm run build
 
-# Tạo thư mục ssl và uploads
-RUN mkdir -p ssl uploads
+# Chỉ giữ production dependencies cho runtime
+RUN npm prune --omit=dev --legacy-peer-deps
 
-# Expose port
-EXPOSE 3000
+# ========================================
+# Stage 2: Runtime image tối giản
+# ========================================
+FROM node:20-alpine AS runtime
 
-# Script khởi động: tạo SSL nếu chưa có, rồi chạy dev server
-CMD ["sh", "-c", "if [ ! -f ssl/key.pem ]; then npm run ssl; fi && npm run dev"]
+RUN apk add --no-cache openssl \
+    && addgroup -S appgroup \
+    && adduser -S appuser -G appgroup
+
+WORKDIR /app
+
+ENV NODE_ENV=production \
+    PORT=5000 \
+    SSL_KEY_PATH=/app/ssl/key.pem \
+    SSL_CERT_PATH=/app/ssl/cert.pem
+
+# Chỉ copy các file cần thiết để chạy production
+COPY --from=builder --chown=appuser:appgroup /app/dist ./dist
+COPY --from=builder --chown=appuser:appgroup /app/node_modules ./node_modules
+COPY --from=builder --chown=appuser:appgroup /app/package.json ./package.json
+COPY --chown=appuser:appgroup generate-ssl.cjs ./generate-ssl.cjs
+COPY --chown=appuser:appgroup docker-entrypoint.sh ./docker-entrypoint.sh
+
+RUN mkdir -p uploads ssl \
+    && chown -R appuser:appgroup /app \
+    && chmod +x docker-entrypoint.sh
+
+USER appuser
+
+EXPOSE 5000
+
+ENTRYPOINT ["./docker-entrypoint.sh"]
+CMD ["node", "dist/server.cjs"]

@@ -29,7 +29,7 @@ docker-compose up -d
 docker-compose logs -f
 ```
 
-Truy cập: `https://localhost:3000` hoặc `https://<IP-máy-tính>:3000` từ điện thoại.
+Truy cập: `https://localhost:5000` hoặc `https://<IP-máy-tính>:5000` từ điện thoại.
 
 Chi tiết: [DOCKER.md](DOCKER.md)
 

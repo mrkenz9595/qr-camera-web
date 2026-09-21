@@ -1,18 +1,20 @@
 import React, { useState } from 'react';
-import { 
-  Search, 
-  Play, 
-  Download, 
-  Trash2, 
-  RefreshCw, 
-  Film, 
-  Calendar, 
-  HardDrive, 
-  QrCode, 
-  X, 
+import {
+  Search,
+  Play,
+  Download,
+  Trash2,
+  RefreshCw,
+  Film,
+  Calendar,
+  HardDrive,
+  QrCode,
+  X,
   AlertTriangle,
   Copy,
-  Check
+  Check,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { VideoItem } from '../types';
 import { formatBytes } from '../utils/audio';
@@ -35,6 +37,12 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
   const [videoToDelete, setVideoToDelete] = useState<VideoItem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+  const [bulkDeletePeriod, setBulkDeletePeriod] = useState<15 | 30 | 90 | null>(null);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+
+  const ITEMS_PER_PAGE = 10;
 
   // Lọc video theo nội dung mã QR hoặc tên tệp
   const filteredVideos = videos.filter((video) => {
@@ -45,6 +53,17 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
       video.filename.toLowerCase().includes(q)
     );
   });
+
+  // Phân trang
+  const totalPages = Math.ceil(filteredVideos.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const paginatedVideos = filteredVideos.slice(startIndex, endIndex);
+
+  // Reset về trang 1 khi tìm kiếm thay đổi
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
 
   // Xóa video khỏi server
   const handleDeleteVideo = async () => {
@@ -65,6 +84,54 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
     } finally {
       setIsDeleting(false);
     }
+  };
+
+  // Xóa hàng loạt video cũ theo thời gian
+  const handleBulkDelete = async () => {
+    if (!bulkDeletePeriod) return;
+    setIsBulkDeleting(true);
+
+    const now = Date.now();
+    const cutoffTime = now - bulkDeletePeriod * 24 * 60 * 60 * 1000;
+
+    const videosToDelete = videos.filter((video) => {
+      const createdTime = new Date(video.createdAt).getTime();
+      return createdTime < cutoffTime;
+    });
+
+    if (videosToDelete.length === 0) {
+      alert('Không có video nào cũ hơn thời gian đã chọn.');
+      setIsBulkDeleting(false);
+      setShowBulkDeleteConfirm(false);
+      setBulkDeletePeriod(null);
+      return;
+    }
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const video of videosToDelete) {
+      try {
+        const response = await fetch(`/api/videos/${encodeURIComponent(video.filename)}`, {
+          method: 'DELETE',
+        });
+        const data = await response.json();
+        if (response.ok && data.success) {
+          successCount++;
+        } else {
+          failCount++;
+        }
+      } catch (err) {
+        failCount++;
+      }
+    }
+
+    setIsBulkDeleting(false);
+    setShowBulkDeleteConfirm(false);
+    setBulkDeletePeriod(null);
+    onRefresh();
+
+    alert(`Đã xóa ${successCount} video thành công${failCount > 0 ? `, ${failCount} lỗi` : ''}.`);
   };
 
   // Tải video về máy điện thoại (Hỗ trợ mạng nội bộ HTTPS & Self-signed certs)
@@ -156,11 +223,44 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
       </div>
 
       {/* THỐNG KÊ NHANH */}
-      <div className="flex items-center justify-between text-xs text-slate-400 px-1">
+      <div className="flex items-center justify-between text-xs text-slate-400 px-1 gap-2 flex-wrap">
         <span>
           Tổng số: <strong className="text-slate-200">{videos.length} video</strong>
           {searchQuery && ` (Khớp ${filteredVideos.length})`}
         </span>
+
+        {videos.length > 0 && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-slate-500">Xóa cũ hơn:</span>
+            <button
+              onClick={() => {
+                setBulkDeletePeriod(15);
+                setShowBulkDeleteConfirm(true);
+              }}
+              className="bg-slate-800 hover:bg-rose-900/40 text-slate-300 hover:text-rose-400 text-[11px] px-2 py-1 rounded-lg border border-slate-700 hover:border-rose-700 transition"
+            >
+              15 ngày
+            </button>
+            <button
+              onClick={() => {
+                setBulkDeletePeriod(30);
+                setShowBulkDeleteConfirm(true);
+              }}
+              className="bg-slate-800 hover:bg-rose-900/40 text-slate-300 hover:text-rose-400 text-[11px] px-2 py-1 rounded-lg border border-slate-700 hover:border-rose-700 transition"
+            >
+              1 tháng
+            </button>
+            <button
+              onClick={() => {
+                setBulkDeletePeriod(90);
+                setShowBulkDeleteConfirm(true);
+              }}
+              className="bg-slate-800 hover:bg-rose-900/40 text-slate-300 hover:text-rose-400 text-[11px] px-2 py-1 rounded-lg border border-slate-700 hover:border-rose-700 transition"
+            >
+              3 tháng
+            </button>
+          </div>
+        )}
       </div>
 
       {/* DANH SÁCH LƯỚI VIDEO (GRID) */}
@@ -186,8 +286,9 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {filteredVideos.map((video) => (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {paginatedVideos.map((video) => (
             <div
               key={video.filename}
               className="bg-slate-800/80 border border-slate-700 rounded-2xl overflow-hidden shadow-sm hover:border-slate-600 transition flex flex-col group"
@@ -284,6 +385,69 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
             </div>
           ))}
         </div>
+
+        {/* PHÂN TRANG */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center gap-2 pt-2">
+            <button
+              onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+              disabled={currentPage === 1}
+              className="flex items-center justify-center w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition"
+              title="Trang trước"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+
+            <div className="flex items-center gap-1">
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                // Hiển thị: trang đầu, trang cuối, trang hiện tại và 1 trang trước/sau
+                const showPage =
+                  page === 1 ||
+                  page === totalPages ||
+                  Math.abs(page - currentPage) <= 1;
+
+                const showEllipsisBefore = page === currentPage - 2 && currentPage > 3;
+                const showEllipsisAfter = page === currentPage + 2 && currentPage < totalPages - 2;
+
+                if (!showPage && !showEllipsisBefore && !showEllipsisAfter) {
+                  return null;
+                }
+
+                if (showEllipsisBefore || showEllipsisAfter) {
+                  return (
+                    <span key={`ellipsis-${page}`} className="text-slate-500 px-1">
+                      ...
+                    </span>
+                  );
+                }
+
+                return (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`w-8 h-8 rounded-lg text-xs font-medium transition ${
+                      page === currentPage
+                        ? 'bg-indigo-600 text-white border border-indigo-500'
+                        : 'bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                );
+              })}
+            </div>
+
+            <button
+              onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+              disabled={currentPage === totalPages}
+              className="flex items-center justify-center w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition"
+              title="Trang sau"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+      </>
       )}
 
       {/* MODAL XEM TRỰC TIẾP VIDEO (PLAY MODAL) */}
@@ -372,6 +536,61 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({
                   <Trash2 className="w-3.5 h-3.5" />
                 )}
                 <span>{isDeleting ? 'Đang xóa...' : 'Xóa vĩnh viễn'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL XÁC NHẬN XÓA HÀNG LOẠT */}
+      {showBulkDeleteConfirm && bulkDeletePeriod && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-150">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-5 max-w-sm w-full shadow-2xl space-y-3">
+            <div className="w-11 h-11 rounded-full bg-rose-950/80 text-rose-400 border border-rose-800/60 flex items-center justify-center mx-auto">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+
+            <div className="text-center">
+              <div className="text-base font-bold text-white mb-1">Xóa video hàng loạt?</div>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Tất cả video cũ hơn <strong className="text-rose-400">
+                  {bulkDeletePeriod === 15 ? '15 ngày' : bulkDeletePeriod === 30 ? '1 tháng' : '3 tháng'}
+                </strong> sẽ bị xóa vĩnh viễn khỏi server.
+              </p>
+              <p className="text-xs text-slate-500 mt-2">
+                Số video sẽ xóa: <strong className="text-slate-300">
+                  {videos.filter((v) => {
+                    const createdTime = new Date(v.createdAt).getTime();
+                    const cutoffTime = Date.now() - bulkDeletePeriod * 24 * 60 * 60 * 1000;
+                    return createdTime < cutoffTime;
+                  }).length}
+                </strong>
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 pt-2">
+              <button
+                onClick={() => {
+                  setShowBulkDeleteConfirm(false);
+                  setBulkDeletePeriod(null);
+                }}
+                disabled={isBulkDeleting}
+                className="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium py-2.5 rounded-xl border border-slate-700 transition"
+              >
+                Hủy bỏ
+              </button>
+
+              <button
+                onClick={handleBulkDelete}
+                disabled={isBulkDeleting}
+                className="bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold py-2.5 rounded-xl shadow-lg shadow-rose-900/40 transition flex items-center justify-center space-x-1"
+              >
+                {isBulkDeleting ? (
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Trash2 className="w-3.5 h-3.5" />
+                )}
+                <span>{isBulkDeleting ? 'Đang xóa...' : 'Xóa vĩnh viễn'}</span>
               </button>
             </div>
           </div>

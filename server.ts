@@ -81,7 +81,7 @@ const upload = multer({
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 5000;
 
   // Middleware CORS: Cho phép truy cập từ mọi origin (rất quan trọng khi chạy mobile hoặc khác port)
   app.use(cors({
