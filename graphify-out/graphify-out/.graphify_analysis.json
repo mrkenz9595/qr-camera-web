@@ -1,0 +1,276 @@
+{
+  "communities": {
+    "0": [
+      "package",
+      "package_name",
+      "package_private",
+      "package_type",
+      "package_version",
+      "ref_autoprefixer",
+      "ref_dotenv",
+      "ref_esbuild",
+      "ref_google_genai",
+      "ref_motion",
+      "ref_path",
+      "ref_tailwindcss",
+      "ref_tailwindcss_vite",
+      "ref_tsx",
+      "ref_types_cors",
+      "ref_types_express",
+      "ref_types_multer",
+      "ref_types_node",
+      "ref_types_react",
+      "ref_types_react_dom",
+      "ref_typescript",
+      "ref_vite",
+      "ref_vitejs_plugin_react",
+      "vite_config"
+    ],
+    "1": [
+      "tsconfig",
+      "tsconfig_compileroptions",
+      "tsconfig_compileroptions_allowimportingtsextensions",
+      "tsconfig_compileroptions_allowjs",
+      "tsconfig_compileroptions_experimentaldecorators",
+      "tsconfig_compileroptions_isolatedmodules",
+      "tsconfig_compileroptions_jsx",
+      "tsconfig_compileroptions_lib",
+      "tsconfig_compileroptions_module",
+      "tsconfig_compileroptions_moduledetection",
+      "tsconfig_compileroptions_moduleresolution",
+      "tsconfig_compileroptions_noemit",
+      "tsconfig_compileroptions_paths",
+      "tsconfig_compileroptions_skiplibcheck",
+      "tsconfig_compileroptions_target",
+      "tsconfig_compileroptions_types",
+      "tsconfig_compileroptions_usedefineforclassfields"
+    ],
+    "2": [
+      "ref_cors",
+      "ref_express",
+      "ref_http",
+      "ref_https",
+      "ref_multer",
+      "ref_url",
+      "server",
+      "server_dirname",
+      "server_filename",
+      "server_findexistingvideobyqr",
+      "server_sanitizeqrtofilename",
+      "server_startserver",
+      "server_startserver_getlanipaddresses",
+      "server_storage",
+      "server_upload",
+      "server_uploadsdir"
+    ],
+    "3": [
+      "ref_lucide_react",
+      "ref_react",
+      "ref_react_dom",
+      "src_app",
+      "src_app_app",
+      "src_components_dashboardtab",
+      "src_components_dashboardtab_dashboardtab",
+      "src_components_dashboardtab_dashboardtabprops",
+      "src_index",
+      "src_main",
+      "src_types",
+      "src_types_cameradevice",
+      "src_types_scannerstatus",
+      "src_types_serverinfo",
+      "src_types_videoitem",
+      "src_utils_audio_formatbytes"
+    ],
+    "4": [
+      "package_dependencies",
+      "package_dependencies_cors",
+      "package_dependencies_dotenv",
+      "package_dependencies_express",
+      "package_dependencies_google_genai",
+      "package_dependencies_html5_qrcode",
+      "package_dependencies_lucide_react",
+      "package_dependencies_motion",
+      "package_dependencies_multer",
+      "package_dependencies_react",
+      "package_dependencies_react_dom",
+      "package_dependencies_tailwindcss_vite",
+      "package_dependencies_vite",
+      "package_dependencies_vitejs_plugin_react"
+    ],
+    "5": [
+      "generate_ssl",
+      "generate_ssl_certpath",
+      "generate_ssl_execsync",
+      "generate_ssl_fs",
+      "generate_ssl_getlanips",
+      "generate_ssl_ips",
+      "generate_ssl_keypath",
+      "generate_ssl_os",
+      "generate_ssl_path",
+      "generate_ssl_ssldir",
+      "ref_child_process",
+      "ref_fs",
+      "ref_os"
+    ],
+    "6": [
+      "package_devdependencies",
+      "package_devdependencies_autoprefixer",
+      "package_devdependencies_esbuild",
+      "package_devdependencies_tailwindcss",
+      "package_devdependencies_tsx",
+      "package_devdependencies_types_cors",
+      "package_devdependencies_types_express",
+      "package_devdependencies_types_multer",
+      "package_devdependencies_types_node",
+      "package_devdependencies_types_react",
+      "package_devdependencies_types_react_dom",
+      "package_devdependencies_typescript"
+    ],
+    "7": [
+      "ref_html5_qrcode",
+      "src_components_scannertab",
+      "src_components_scannertab_scannertab",
+      "src_components_scannertab_scannertabprops",
+      "src_utils_audio",
+      "src_utils_audio_formatduration",
+      "src_utils_audio_getaudiocontext",
+      "src_utils_audio_playerrorbeep",
+      "src_utils_audio_playstartbeep",
+      "src_utils_audio_playstopbeep"
+    ],
+    "8": [
+      "package_scripts",
+      "package_scripts_build",
+      "package_scripts_clean",
+      "package_scripts_dev",
+      "package_scripts_lint",
+      "package_scripts_preview",
+      "package_scripts_ssl",
+      "package_scripts_start"
+    ]
+  },
+  "cohesion": {
+    "0": 0.09057971014492754,
+    "1": 0.11764705882352941,
+    "2": 0.15,
+    "3": 0.20833333333333334,
+    "4": 0.14285714285714285,
+    "5": 0.15384615384615385,
+    "6": 0.16666666666666666,
+    "7": 0.4444444444444444,
+    "8": 0.25
+  },
+  "gods": [
+    {
+      "id": "tsconfig_compileroptions",
+      "label": "compilerOptions",
+      "degree": 16
+    },
+    {
+      "id": "package_scripts",
+      "label": "scripts",
+      "degree": 8
+    },
+    {
+      "id": "src_components_scannertab_scannertab",
+      "label": "ScannerTab()",
+      "degree": 6
+    },
+    {
+      "id": "ref_react",
+      "label": "react",
+      "degree": 5
+    },
+    {
+      "id": "ref_lucide_react",
+      "label": "lucide-react",
+      "degree": 4
+    },
+    {
+      "id": "src_types_videoitem",
+      "label": "VideoItem",
+      "degree": 4
+    },
+    {
+      "id": "src_utils_audio_getaudiocontext",
+      "label": "getAudioContext()",
+      "degree": 4
+    },
+    {
+      "id": "src_utils_audio_playstartbeep",
+      "label": "playStartBeep()",
+      "degree": 4
+    },
+    {
+      "id": "src_utils_audio_playstopbeep",
+      "label": "playStopBeep()",
+      "degree": 4
+    },
+    {
+      "id": "src_utils_audio_playerrorbeep",
+      "label": "playErrorBeep()",
+      "degree": 4
+    }
+  ],
+  "surprises": [
+    {
+      "source": "DashboardTabProps",
+      "target": "VideoItem",
+      "source_files": [
+        "src/components/DashboardTab.tsx",
+        "src/types.ts"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "references",
+      "why": "cross-file semantic connection"
+    },
+    {
+      "source": "DashboardTab()",
+      "target": "formatBytes()",
+      "source_files": [
+        "src/components/DashboardTab.tsx",
+        "src/utils/audio.ts"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "cross-file semantic connection"
+    },
+    {
+      "source": "ScannerTab()",
+      "target": "formatDuration()",
+      "source_files": [
+        "src/components/ScannerTab.tsx",
+        "src/utils/audio.ts"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "cross-file semantic connection"
+    },
+    {
+      "source": "ScannerTab()",
+      "target": "playErrorBeep()",
+      "source_files": [
+        "src/components/ScannerTab.tsx",
+        "src/utils/audio.ts"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "cross-file semantic connection"
+    },
+    {
+      "source": "ScannerTab()",
+      "target": "playStartBeep()",
+      "source_files": [
+        "src/components/ScannerTab.tsx",
+        "src/utils/audio.ts"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "cross-file semantic connection"
+    }
+  ],
+  "tokens": {
+    "input": 0,
+    "output": 0
+  }
+}

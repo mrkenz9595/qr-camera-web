@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  qr-camera-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: qr-camera-web
+    ports:
+      - "3000:3000"
+    volumes:
+      # Mount uploads để lưu video persistent
+      - ./uploads:/app/uploads
+      # Mount ssl để giữ chứng chỉ khi restart
+      - ./ssl:/app/ssl
+      # Mount source code để hot-reload trong dev (optional, comment nếu không cần)
+      - ./src:/app/src
+      - ./server.ts:/app/server.ts
+    environment:
+      - NODE_ENV=development
+      - SSL_KEY_PATH=/app/ssl/key.pem
+      - SSL_CERT_PATH=/app/ssl/cert.pem
+    restart: unless-stopped
+    networks:
+      - qr-network
+
+networks:
+  qr-network:
+    driver: bridge

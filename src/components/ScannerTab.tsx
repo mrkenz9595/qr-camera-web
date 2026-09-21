@@ -22,6 +22,45 @@ interface ScannerTabProps {
   onGoToDashboard: () => void;
 }
 
+interface RecordingFormat {
+  mime: string;
+  ext: '.mp4' | '.webm';
+}
+
+interface RecordingSession {
+  qrText: string;
+  chunks: Blob[];
+  stopRequested: boolean;
+  canceled: boolean;
+  uploadStarted: boolean;
+}
+
+const getRecordingFormat = (mimeType: string): RecordingFormat | null => {
+  const mime = mimeType.trim();
+  const container = mime.split(';', 1)[0].trim().toLowerCase();
+
+  if (container === 'video/mp4') {
+    return { mime, ext: '.mp4' };
+  }
+  if (container === 'video/webm') {
+    return { mime, ext: '.webm' };
+  }
+
+  return null;
+};
+
+const resolveRecordedFormat = (
+  recorderMimeType: string,
+  chunks: Blob[],
+): RecordingFormat | null => {
+  for (const mimeType of [recorderMimeType, ...chunks.map((chunk) => chunk.type)]) {
+    const format = getRecordingFormat(mimeType);
+    if (format) return format;
+  }
+
+  return null;
+};
+
 export const ScannerTab: React.FC<ScannerTabProps> = ({ onVideoUploaded, onGoToDashboard }) => {
   const [status, setStatus] = useState<ScannerStatus>('idle');
   const [currentQr, setCurrentQr] = useState<string>('');
@@ -38,7 +77,7 @@ export const ScannerTab: React.FC<ScannerTabProps> = ({ onVideoUploaded, onGoToD
   // Tham chiếu DOM & API
   const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const recordedChunksRef = useRef<Blob[]>([]);
+  const recordingSessionRef = useRef<RecordingSession | null>(null);
   const timerIntervalRef = useRef<number | null>(null);
   const cooldownIntervalRef = useRef<number | null>(null);
   const stopTimeoutRef = useRef<number | null>(null);
@@ -46,7 +85,7 @@ export const ScannerTab: React.FC<ScannerTabProps> = ({ onVideoUploaded, onGoToD
   const activeQrRef = useRef<string>('');
   const statusRef = useRef<ScannerStatus>('idle');
   const isCooldownRef = useRef<boolean>(false);
-  const mimeTypeRef = useRef<{ mime: string; ext: string }>({ mime: 'video/webm', ext: '.webm' });
+  const mimeTypeRef = useRef<RecordingFormat>({ mime: 'video/webm', ext: '.webm' });
 
   // Đồng bộ ref với state để tránh stale closure trong callback quét QR
   useEffect(() => {
@@ -60,7 +99,7 @@ export const ScannerTab: React.FC<ScannerTabProps> = ({ onVideoUploaded, onGoToD
   // Xác định định dạng video được hỗ trợ tốt nhất trên trình duyệt di động
   useEffect(() => {
     const checkSupportedMime = () => {
-      const candidates = [
+      const candidates: RecordingFormat[] = [
         { mime: 'video/mp4;codecs=avc1,mp4a.40.2', ext: '.mp4' },
         { mime: 'video/mp4', ext: '.mp4' },
         { mime: 'video/webm;codecs=vp9,opus', ext: '.webm' },
@@ -244,26 +283,72 @@ export const ScannerTab: React.FC<ScannerTabProps> = ({ onVideoUploaded, onGoToD
         }
       }
 
-      recordedChunksRef.current = [];
-      const mime = mimeTypeRef.current.mime;
-      const options: MediaRecorderOptions = mime ? { mimeType: mime } : {};
-      const recorder = new MediaRecorder(stream, options);
+      const auxiliaryTracks = stream.getTracks().filter((track) => (
+        !videoElement?.srcObject ||
+        !(videoElement.srcObject instanceof MediaStream) ||
+        !videoElement.srcObject.getTracks().includes(track)
+      ));
+
+      const session: RecordingSession = {
+        qrText,
+        chunks: [],
+        stopRequested: false,
+        canceled: false,
+        uploadStarted: false,
+      };
+
+      const requestedMime = mimeTypeRef.current.mime;
+      let recorder: MediaRecorder;
+      try {
+        recorder = new MediaRecorder(stream, requestedMime ? { mimeType: requestedMime } : undefined);
+      } catch (mimeError) {
+        console.warn(`Không thể khởi tạo MediaRecorder với ${requestedMime}, dùng định dạng mặc định:`, mimeError);
+        recorder = new MediaRecorder(stream);
+      }
 
       recorder.ondataavailable = (event) => {
-        if (event.data && event.data.size > 0) {
-          recordedChunksRef.current.push(event.data);
+        if (!session.canceled && event.data && event.data.size > 0) {
+          session.chunks.push(event.data);
         }
       };
 
-      recorder.onstop = () => {
-        uploadRecordedVideo();
+      recorder.onerror = (event) => {
+        console.error('MediaRecorder gặp lỗi:', event);
       };
 
+      recorder.onstop = () => {
+        if (mediaRecorderRef.current === recorder) {
+          mediaRecorderRef.current = null;
+        }
+
+        auxiliaryTracks.forEach((track) => track.stop());
+
+        if (session.canceled || session.uploadStarted) return;
+        session.uploadStarted = true;
+
+        const chunks = [...session.chunks];
+        const format = resolveRecordedFormat(recorder.mimeType, chunks);
+        if (!format) {
+          const reportedTypes = [recorder.mimeType, ...chunks.map((chunk) => chunk.type)]
+            .filter(Boolean)
+            .join(', ');
+          handleRecordingFailure(
+            new Error(`Không xác định được định dạng video đã ghi${reportedTypes ? ` (${reportedTypes})` : ''}.`),
+          );
+          return;
+        }
+
+        void uploadRecordedVideo(chunks, format, session.qrText);
+      };
+
+      recordingSessionRef.current = session;
       mediaRecorderRef.current = recorder;
-      recorder.start(500); // Lưu mảnh video mỗi 500ms để đảm bảo không mất dữ liệu
+      recorder.start(); // Để trình duyệt hoàn tất một container duy nhất khi dừng quay
 
       // Phát âm thanh bíp và cập nhật giao diện
       playStartBeep();
+      activeQrRef.current = qrText;
+      statusRef.current = 'recording';
       setCurrentQr(qrText);
       setStatus('recording');
       setRecordingSeconds(0);
@@ -297,10 +382,44 @@ export const ScannerTab: React.FC<ScannerTabProps> = ({ onVideoUploaded, onGoToD
     }
   };
 
+  const handleRecordingFailure = (error: Error) => {
+    console.error('Lỗi khi hoàn tất video:', error);
+    alert('Không thể lưu video: ' + error.message);
+
+    const session = recordingSessionRef.current;
+    if (session) {
+      const videoElement = document.querySelector('#reader video') as HTMLVideoElement | null;
+      const auxiliaryTracks = mediaRecorderRef.current
+        ? Array.from(new Set(
+            (mediaRecorderRef.current.stream?.getTracks() || []).filter((track) => (
+              !videoElement?.srcObject ||
+              !(videoElement.srcObject instanceof MediaStream) ||
+              !videoElement.srcObject.getTracks().includes(track)
+            ))
+          ))
+        : [];
+      auxiliaryTracks.forEach((track) => track.stop());
+    }
+
+    recordingSessionRef.current = null;
+    mediaRecorderRef.current = null;
+    setStatus('idle');
+    setCurrentQr('');
+    setUploadMessage('');
+  };
+
   /**
    * Dừng ghi hình ngay lập tức và tiến hành tải video lên server
    */
   const executeStop = () => {
+    const session = recordingSessionRef.current;
+    const recorder = mediaRecorderRef.current;
+    if (!session || session.canceled || session.stopRequested || !recorder || recorder.state === 'inactive') {
+      return;
+    }
+    session.stopRequested = true;
+    statusRef.current = 'uploading';
+
     if (timerIntervalRef.current) {
       clearInterval(timerIntervalRef.current);
       timerIntervalRef.current = null;
@@ -322,12 +441,12 @@ export const ScannerTab: React.FC<ScannerTabProps> = ({ onVideoUploaded, onGoToD
     setDelayRemaining(0);
 
     playStopBeep();
-
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      setStatus('uploading');
-      mediaRecorderRef.current.stop();
-    } else {
-      setStatus('idle');
+    setStatus('uploading');
+    setUploadMessage('Đang hoàn tất video...');
+    try {
+      recorder.stop();
+    } catch (err: any) {
+      handleRecordingFailure(err instanceof Error ? err : new Error(String(err)));
     }
   };
 
@@ -335,9 +454,11 @@ export const ScannerTab: React.FC<ScannerTabProps> = ({ onVideoUploaded, onGoToD
    * Kích hoạt dừng có độ trễ 2 giây sau khi quét QR lần 2
    */
   const stopRecordingWithDelay = () => {
+    const session = recordingSessionRef.current;
     // Nếu đang trong quá trình đếm ngược dừng thì bỏ qua quét lặp
-    if (statusRef.current === 'stopping') return;
+    if (statusRef.current !== 'recording' || !session || session.stopRequested || session.canceled) return;
 
+    statusRef.current = 'stopping';
     setStatus('stopping');
     setDelayRemaining(2);
 
@@ -373,31 +494,63 @@ export const ScannerTab: React.FC<ScannerTabProps> = ({ onVideoUploaded, onGoToD
     if (cooldownIntervalRef.current) clearInterval(cooldownIntervalRef.current);
     if (stopTimeoutRef.current) clearTimeout(stopTimeoutRef.current);
     if (stopCountdownIntervalRef.current) clearInterval(stopCountdownIntervalRef.current);
+    timerIntervalRef.current = null;
+    cooldownIntervalRef.current = null;
+    stopTimeoutRef.current = null;
+    stopCountdownIntervalRef.current = null;
     isCooldownRef.current = false;
     setCooldownRemaining(0);
     setDelayRemaining(0);
 
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.ondataavailable = null;
-      mediaRecorderRef.current.onstop = null;
-      mediaRecorderRef.current.stop();
+    const session = recordingSessionRef.current;
+    if (session) {
+      session.canceled = true;
+      session.chunks = [];
     }
-    recordedChunksRef.current = [];
+
+    const recorder = mediaRecorderRef.current;
+    if (recorder && recorder.state !== 'inactive') {
+      const videoElement = document.querySelector('#reader video') as HTMLVideoElement | null;
+      const auxiliaryTracks = Array.from(new Set(
+        (recorder.stream?.getTracks() || []).filter((track) => (
+          !videoElement?.srcObject ||
+          !(videoElement.srcObject instanceof MediaStream) ||
+          !videoElement.srcObject.getTracks().includes(track)
+        ))
+      ));
+
+      recorder.ondataavailable = null;
+      recorder.onstop = null;
+      try {
+        recorder.stop();
+      } catch (err) {
+        console.warn('Không thể dừng MediaRecorder khi hủy:', err);
+      }
+
+      auxiliaryTracks.forEach((track) => track.stop());
+    }
+
+    mediaRecorderRef.current = null;
+    recordingSessionRef.current = null;
+    statusRef.current = 'idle';
     setStatus('idle');
     setCurrentQr('');
+    setUploadMessage('');
   };
 
   /**
-   * Đóng gói Blob và gửi qua API POST /api/upload-video
+   * Đóng gói Blob đã hoàn tất và gửi qua API POST /api/upload-video
    */
-  const uploadRecordedVideo = async () => {
+  const uploadRecordedVideo = async (
+    chunks: Blob[],
+    format: RecordingFormat,
+    qrText: string,
+  ) => {
     setStatus('uploading');
-    setUploadMessage('Đang đóng gói và mã hóa video...');
+    setUploadMessage('Đang đóng gói video...');
 
     try {
-      const mime = mimeTypeRef.current.mime || 'video/webm';
-      const ext = mimeTypeRef.current.ext || '.webm';
-      const videoBlob = new Blob(recordedChunksRef.current, { type: mime });
+      const videoBlob = new Blob(chunks, { type: format.mime });
 
       if (videoBlob.size === 0) {
         throw new Error('Dung lượng video bằng 0, không có dữ liệu để tải lên.');
@@ -406,8 +559,8 @@ export const ScannerTab: React.FC<ScannerTabProps> = ({ onVideoUploaded, onGoToD
       setUploadMessage(`Đang tải video lên server (${(videoBlob.size / 1024 / 1024).toFixed(2)} MB)...`);
 
       // Chuẩn bị tên file: [Nội dung mã QR].ext
-      const qrCodeName = activeQrRef.current.trim() || 'QR_Video';
-      const cleanFileName = `${qrCodeName}${ext}`;
+      const qrCodeName = qrText.trim() || 'QR_Video';
+      const cleanFileName = `${qrCodeName}${format.ext}`;
 
       const formData = new FormData();
       formData.append('video', videoBlob, cleanFileName);
@@ -426,14 +579,19 @@ export const ScannerTab: React.FC<ScannerTabProps> = ({ onVideoUploaded, onGoToD
 
       setLastUploadedFile(data.video.filename);
       onVideoUploaded();
+      statusRef.current = 'idle';
       setStatus('idle');
       setCurrentQr('');
       setUploadMessage('');
     } catch (err: any) {
       console.error('Lỗi khi tải video lên server:', err);
       alert('Tải video thất bại: ' + (err?.message || 'Lỗi mạng hoặc server không phản hồi'));
+      statusRef.current = 'idle';
       setStatus('idle');
       setCurrentQr('');
+      setUploadMessage('');
+    } finally {
+      recordingSessionRef.current = null;
     }
   };
 

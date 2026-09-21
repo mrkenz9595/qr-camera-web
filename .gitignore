@@ -1,8 +1,41 @@
+# Dependencies
 node_modules/
+
+# Build outputs
 build/
 dist/
+
+# Testing
 coverage/
-.DS_Store
+
+# Runtime data
+uploads/
+ssl/
+*.meta.json
+
+# Logs
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment variables
 .env*
 !.env.example
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary files
+*.tmp
+*.temp
+.cache/

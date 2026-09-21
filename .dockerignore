@@ -1,0 +1,5 @@
+# Docker
+uploads/
+ssl/
+*.log
+.env.local
